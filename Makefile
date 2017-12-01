@@ -1,9 +1,9 @@
 CFLAGS=-g -Wall -static-libgcc -std=c11
 CC=gcc
 INCLUDES=src/include
-PROGRAM_ONE=build/program_one.exe
-SRC=src/program_one.c
-OBJS=build/program_one.o
+PROGRAM_ONE=build/program_third.exe
+SRC=src/program_third.c
+OBJS=build/program_third.o
 
 .PHONY:
 	clean
@@ -15,4 +15,5 @@ $(OBJS):$(SRC)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	del build\\* /q
+	rm -rf build/*
+	# del build\\* /q
