@@ -1,18 +1,28 @@
 CFLAGS=-g -Wall -static-libgcc -std=c11
 CC=gcc
-INCLUDES=src/include
-PROGRAM_ONE=build/program_third.exe
-SRC=src/program_third.c
-OBJS=build/program_third.o
+INCLUDES=src/common.h
+PROGRAM=build/program.exe
+MAIN=src/calu.c
+MAIN_TARGET=$(patsubst %.c,%.o,build/$(notdir $(MAIN)))
+OBJS=$(MAIN_TARGET) build/utils.o build/stack.o build/input.o
 
 .PHONY:
 	clean
 
-$(PROGRAM_ONE):$(OBJS)
+$(PROGRAM):$(OBJS)
 	$(CC) $(OBJS) -o $@
 
-$(OBJS):$(SRC)
-	$(CC) $(CFLAGS) -c $< -o $@
+$(MAIN_TARGET): $(MAIN) $(INCLUDES)
+	$(CC) $(CFLAGS) -c $(MAIN) -o $@
+
+build/utils.o:src/utils.c $(INCLUDES)
+	$(CC) $(CFLAGS) -c src/utils.c -o $@
+
+build/stack.o:src/stack.c $(INCLUDES)
+	$(CC) $(CFLAGS) -c src/stack.c -o $@
+
+build/input.o:src/input.c $(INCLUDES)
+	$(CC) $(CFLAGS) -c src/input.c -o $@
 
 clean:
 	rm -rf build/*
