@@ -2,7 +2,7 @@ CFLAGS=-g -Wall -static-libgcc -std=c11
 CC=gcc
 INCLUDES=src/common.h
 PROGRAM=build/program.exe
-MAIN=src/calu.c
+MAIN=src/program_fourth.c
 MAIN_TARGET=$(patsubst %.c,%.o,build/$(notdir $(MAIN)))
 OBJS=$(MAIN_TARGET) build/utils.o build/stack.o build/input.o
 
