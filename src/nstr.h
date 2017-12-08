@@ -4,6 +4,8 @@
 
 #define MAX_MALLOC (1024*1024)
 
+#define difference_abs(x, y) (x > y) ? (x - y) : (y - x)
+
 typedef char* nstr;
 
 struct nstr_real{

@@ -55,11 +55,12 @@ static struct nstr_real *expandMemory(struct nstr_real *origin,size_t addLen){
     if(new_sr == NULL){
         return NULL;
     }
+    memset(new_sr->buf+new_sr->len,0,expandMem);
     new_sr->freeSpace += expandMem;
     return new_sr;
 } 
 
-static nstr newnstrlen(const char *init, size_t len){
+static nstr nstrnewlen(const char *init, size_t len){
     struct nstr_real *sr;
     if(len > 0){
         sr = malloc(sizeof(struct nstr_real)+len+1);
@@ -72,6 +73,8 @@ static nstr newnstrlen(const char *init, size_t len){
     sr->freeSpace = 0;
     if(init && len){
         memcpy(sr->buf, init, len);
+    }else if(len > 0){
+        memset(sr->buf, 0, len);
     }
     sr->buf[len] = '\0';
     return (nstr)sr->buf;
@@ -79,9 +82,9 @@ static nstr newnstrlen(const char *init, size_t len){
 
 nstr nstrNew(const char *init){
     if(init)
-        return newnstrlen(init, strlen(init));
+        return nstrnewlen(init, strlen(init));
     else
-        return newnstrlen(NULL,0);
+        return nstrnewlen(NULL,0);
 }
 
 void nstrFree(nstr ns){
@@ -95,7 +98,7 @@ nstr nstrcpy(nstr ns){
         return NULL;
     }
     struct nstr_real *sr = (struct nstr_real*)(ns - sizeof(struct nstr_real));
-    return newnstrlen(sr->buf, sr->len);
+    return nstrnewlen(sr->buf, sr->len);
 }
 
 nstr nstrcat(nstr ns, const char *s){
@@ -198,34 +201,43 @@ nstr nstrReplace(nstr ns,const char *target, const char *replace){
         return ns;
     }
     int index = 0;
+    nstr tmp = ns;
     if(tLen == rLen){ //不需要移动内存
         while(index != -1){
-            index = sundayMatch(ns+index, target);
+            index = sundayMatch(tmp, target);
             if(index != -1){
-                memcpy(ns + index, replace, rLen);
-                index += rLen;
+                tmp += index;
+                memcpy(tmp, replace, rLen);
+                tmp += rLen;
             }
         }
     } else {
-        char *temp;
-        if(tLen < rLen){
-            temp = malloc((sr->len / tLen) * (rLen-tLen));
-        } else {
-            temp = malloc((sr->len / tLen) * (tLen-rLen));
-        }
-        if(temp == NULL){
+        nstr nscpy = nstrnewlen(NULL,sr->len);
+        if(nscpy == NULL){
             return ns;
         }
+        struct nstr_real *tr = (struct nstr_real *)(nscpy - sizeof(struct nstr_real));
         while(index != -1){
-            index = sundayMatch(ns+index, target);
+            index = sundayMatch(tmp, target);
             if(index != -1){
-                memcpy(temp,ns+index+tLen,sr->len - index - tLen);
-                memcpy(ns + index, replace, rLen);
-                memcpy(ns+index+rLen,temp,sr->len - index - tLen);
-                index += rLen;
+                tmp += index;
+                tr = expandMemory(tr, sr->len - index + 1);
+                if(tr == NULL){
+                    return ns;
+                }
+                memcpy(nscpy,tmp, sr->len - index + 1);
+                if(rLen > tLen){
+                    sr = expandMemory(sr, rLen-tLen);
+                    if(sr == NULL){
+                        return ns;
+                    }
+                }
+                memcpy(tmp, replace, rLen);
+                memcpy(tmp+rLen,nscpy+rLen, sr->len - index - rLen + 1);
+                tmp += rLen;
             }
         }
-        free(temp);
+        free(tr);
     }
     return ns;
 }
@@ -254,7 +266,7 @@ int main(){
     ns1 = nstrReplace(ns1, "cc", "$$##");
     test_assert("nstrReplace with \"cc\" to \"$$##\"", memcmp(ns1,"$$##ero cat nice nero feifeihei$$##$$##c",41) == 0);
     ns1 = nstrReplace(ns1, "$$##", "*");
-    test_assert("nstrReplace with \"cc\" to \"$$##\"", memcmp(ns1,"*ero cat nice nero feifeihei**c",32) == 0);
+    test_assert("nstrReplace with \"$$##\" to \"*\"", memcmp(ns1,"*ero cat nice nero feifeihei**c",32) == 0);
 
     nstrFree(ns);
     ns = NULL;
