@@ -1,10 +1,10 @@
-CFLAGS=-g -Wall -static-libgcc -std=c11
+CFLAGS=-g -Wall -static-libgcc -std=c99
 CC=gcc
-INCLUDES=src/common.h
 PROGRAM=build/program.exe
-MAIN=src/program_fourth.c
+MAIN=src/test.c
 MAIN_TARGET=$(patsubst %.c,%.o,build/$(notdir $(MAIN)))
-OBJS=$(MAIN_TARGET) build/utils.o build/stack.o build/input.o
+OBJS=$(MAIN_TARGET) build/nstr.o build/queue.o 
+#build/wordcnt.o
 
 .PHONY:
 	clean
@@ -12,17 +12,20 @@ OBJS=$(MAIN_TARGET) build/utils.o build/stack.o build/input.o
 $(PROGRAM):$(OBJS)
 	$(CC) $(OBJS) -o $@
 
-$(MAIN_TARGET): $(MAIN) $(INCLUDES)
+$(MAIN_TARGET): $(MAIN) 
 	$(CC) $(CFLAGS) -c $(MAIN) -o $@
 
-build/utils.o:src/utils.c $(INCLUDES)
-	$(CC) $(CFLAGS) -c src/utils.c -o $@
+build/nstr.o:src/nstr.c src/nstr.h src/testhelper.h
+	$(CC) $(CFLAGS) -c src/nstr.c -o $@
+	
+build/queue.o:src/queue.c src/queue.h src/testhelper.h
+	$(CC) $(CFLAGS) -c src/queue.c -o $@
 
-build/stack.o:src/stack.c $(INCLUDES)
-	$(CC) $(CFLAGS) -c src/stack.c -o $@
+# build/wordcnt.o:src/wordcnt.c $(INCLUDES)
+# 	$(CC) $(CFLAGS) -c src/wordcnt.c -o $@
 
-build/input.o:src/input.c $(INCLUDES)
-	$(CC) $(CFLAGS) -c src/input.c -o $@
+test_nstr:
+	$(CC) $(CFLAGS) src/nstr.c -o build/nstr.exe
 
 clean:
 	rm -rf build/*
