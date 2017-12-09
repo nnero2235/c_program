@@ -3,6 +3,16 @@
 #include<stdlib.h>
 #include"testhelper.h"
 
+//内存移动，从右往左 移动
+static void memrmove(char* dist,char *src,size_t len){
+    if(dist == NULL || src == NULL || len == 0){
+        return;
+    }
+    while(len--){
+        *(dist+len) = *(src+len);
+    }
+}
+
 //sunday算法 返回index位置   没有找到 返回-1
 static int sundayMatch(const char* target,const char* sub){
     int tLen = strlen(target);
@@ -11,6 +21,15 @@ static int sundayMatch(const char* target,const char* sub){
         return -1;
     }
     int currentPos = 0;
+    if(subLen == 1){ // 直接 BF 算法 最好
+        while(currentPos < tLen){
+            if(target[currentPos] == sub[0]){
+                return currentPos;
+            }
+            currentPos++;
+        }
+        return -1;
+    }
     int subPos = 0;
     char c;
     while(currentPos < tLen){
@@ -23,6 +42,9 @@ static int sundayMatch(const char* target,const char* sub){
             continue;
         } else {
             currentPos -= subPos;
+            if(currentPos + subLen >= tLen){
+                return -1;
+            }
             c = target[currentPos + subLen];
             subPos = subLen;
             while(subPos > 0){
@@ -69,11 +91,13 @@ static nstr nstrnewlen(const char *init, size_t len){
     }
     if(sr == NULL)
         return NULL;
-    sr->len = len;
-    sr->freeSpace = 0;
     if(init && len){
+        sr->len = len;
+        sr->freeSpace = 0;
         memcpy(sr->buf, init, len);
     }else if(len > 0){
+        sr->len = 0;
+        sr->freeSpace = len;
         memset(sr->buf, 0, len);
     }
     sr->buf[len] = '\0';
@@ -91,6 +115,17 @@ void nstrFree(nstr ns){
     if(ns == NULL)
         return;
     free(ns - sizeof(struct nstr_real));
+}
+
+void nstrSplitFree(nstr *ns,int count){
+    if(ns == NULL){
+        return;
+    }
+    int i;
+    for (i = 0; i < count;i++){
+        nstrFree(ns[i]);
+    }
+    free(ns);
 }
 
 nstr nstrcpy(nstr ns){
@@ -114,6 +149,9 @@ nstr nstrcat(nstr ns, const char *s){
     }
     struct nstr_real *sr = (struct nstr_real *)(ns - sizeof(struct nstr_real));
     sr = expandMemory(sr, len);
+    if(sr == NULL){
+        return NULL;
+    }
     memcpy(sr->buf + sr->len, s, len);
     sr->len += len;
     sr->freeSpace -= len;
@@ -186,8 +224,39 @@ int nstrEndWith(const nstr ns, const char *s){
     return 1;
 }
 
-nstr *nstrSplit(const nstr ns, const char *split){
-    return NULL;
+nstr *nstrSplit(const nstr ns, const char *split,int *count){
+    if(ns == NULL || split == NULL){
+        return NULL;
+    }
+    int spLen = strlen(split);
+    struct nstr_real *sr = (struct nstr_real *)(ns - sizeof(struct nstr_real));
+    if(sr->len < spLen){
+        return NULL;
+    }
+    int slots = 5;//假定能分割到 这个数量
+    nstr *tokens = malloc(sizeof(nstr *) * slots);
+    if(tokens == NULL){
+        return NULL;
+    }
+    int tIndex = 0;
+    int index = 0;
+    int currentPos = 0;
+    while((index =sundayMatch(ns+currentPos,split))!=-1){
+        if(tIndex >= slots){
+            slots *= 2 + 1; //1是因为 最后还要添加一个元素
+            nstr *new_tokens = realloc(tokens, slots*sizeof(nstr*));
+            if(new_tokens == NULL){
+                return NULL;
+            }
+            tokens = new_tokens;
+        }
+        nstr token = nstrnewlen(ns + currentPos, index);
+        tokens[tIndex++] = token;
+        currentPos += index+spLen;
+    }
+    tokens[tIndex++] = nstrnewlen(ns + currentPos, sr->len - currentPos);
+    *count = tIndex;
+    return tokens;
 }
 
 nstr nstrReplace(nstr ns,const char *target, const char *replace){
@@ -201,8 +270,8 @@ nstr nstrReplace(nstr ns,const char *target, const char *replace){
         return ns;
     }
     int index = 0;
-    nstr tmp = ns;
     if(tLen == rLen){ //不需要移动内存
+        nstr tmp = ns;
         while(index != -1){
             index = sundayMatch(tmp, target);
             if(index != -1){
@@ -211,39 +280,35 @@ nstr nstrReplace(nstr ns,const char *target, const char *replace){
                 tmp += rLen;
             }
         }
-    } else {
-        nstr nscpy = nstrnewlen(NULL,sr->len);
-        if(nscpy == NULL){
-            return ns;
+    } else if(tLen > rLen) { //不需要扩容
+        int currentPos = 0;
+        while((index = sundayMatch(ns+currentPos,target))!= -1){
+            currentPos += index;
+            memcpy(ns+currentPos, replace, rLen);
+            memmove(ns + currentPos + rLen, ns + currentPos + tLen, sr->len - currentPos - tLen + 1);
+            sr->len -= tLen - rLen;
+            sr->freeSpace += tLen - rLen;
         }
-        struct nstr_real *tr = (struct nstr_real *)(nscpy - sizeof(struct nstr_real));
-        while(index != -1){
-            index = sundayMatch(tmp, target);
-            if(index != -1){
-                tmp += index;
-                tr = expandMemory(tr, sr->len - index + 1);
-                if(tr == NULL){
-                    return ns;
-                }
-                memcpy(nscpy,tmp, sr->len - index + 1);
-                if(rLen > tLen){
-                    sr = expandMemory(sr, rLen-tLen);
-                    if(sr == NULL){
-                        return ns;
-                    }
-                }
-                memcpy(tmp, replace, rLen);
-                memcpy(tmp+rLen,nscpy+rLen, sr->len - index - rLen + 1);
-                tmp += rLen;
+    } else { //可能需要扩容
+        int currentPos = 0;
+        while((index = sundayMatch(ns+currentPos,target)) != -1){
+            sr = expandMemory(sr, rLen-tLen);
+            if(sr == NULL){
+                return NULL;
             }
+            ns = (nstr)sr->buf;
+            currentPos += index;
+            memrmove(ns + currentPos + tLen+(rLen-tLen), ns + currentPos + tLen, sr->len - currentPos - tLen + 1);
+            memcpy(ns+currentPos, replace, rLen);
+            sr->len += rLen - tLen;
+            sr->freeSpace -= rLen - tLen;
         }
-        free(tr);
     }
     return ns;
 }
 
 
-#define _NSTR_TEST_MAIN
+// #define _NSTR_TEST_MAIN
 #ifdef _NSTR_TEST_MAIN
 
 int main(){
@@ -259,18 +324,56 @@ int main(){
     test_assert("nstrStartWith with \"hel\"", nstrStartWith(ns,"hel\0"));
     test_assert("nstrEndWith with \"cat\"", nstrEndWith(ns,"cat\0"));
     test_assert("nstrContains with \"llo\"", nstrContains(ns,"llo\0"));
+    nstrFree(ns);
+    ns = NULL;
+    
+
+    char *s = "redis design of impl";
+    int ssLen = strlen(s);
+    char *t = malloc(sizeof(char)*(ssLen+5));
+    memcpy(t, s, ssLen);
+    memrmove(t + 3, t + 1, ssLen - 1);
+    t[ssLen + 2] = '\0';
+    test_assert("memrmove 2 pos", 
+        strlen(t) == ssLen+2  && memcmp(t,"rededis design of impl",23) == 0);
+    free(t);
+    t = NULL;
 
     nstr ns1 = nstrNew("nnero cat nice nero feifeiheinnccc");
     ns1 = nstrReplace(ns1, "nn", "cc");
-    test_assert("nstrReplace with \"nn\" to \"cc\"", memcmp(ns1,"ccero cat nice nero feifeiheiccccc",35) == 0);
+    test_assert("nstrReplace with \"nn\" to \"cc\"", 
+        nstrlen(ns1) == 34  && memcmp(ns1,"ccero cat nice nero feifeiheiccccc",35) == 0);
     ns1 = nstrReplace(ns1, "cc", "$$##");
-    test_assert("nstrReplace with \"cc\" to \"$$##\"", memcmp(ns1,"$$##ero cat nice nero feifeihei$$##$$##c",41) == 0);
+    test_assert("nstrReplace with \"cc\" to \"$$##\"",
+        nstrlen(ns1) == 40 && memcmp(ns1,"$$##ero cat nice nero feifeihei$$##$$##c",41) == 0);
     ns1 = nstrReplace(ns1, "$$##", "*");
-    test_assert("nstrReplace with \"$$##\" to \"*\"", memcmp(ns1,"*ero cat nice nero feifeihei**c",32) == 0);
+    test_assert("nstrReplace with \"$$##\" to \"*\"",
+        nstrlen(ns1) == 31 && memcmp(ns1,"*ero cat nice nero feifeihei**c",32) == 0);
+    nstrFree(ns1);
+    ns1 = NULL;
 
-    nstrFree(ns);
-    ns = NULL;
-    test_assert("nstrFree test", ns == NULL);
+    nstr ns2 = nstrNew("nnero is handsome");
+    int count = 0;
+    nstr *tokens = nstrSplit(ns2, " ", &count);
+    test_assert("nstrSplit with \" \"",
+        count == 3 && memcmp(tokens[0],"nnero\0",6) == 0
+        && memcmp(tokens[1],"is\0",3) == 0
+        && memcmp(tokens[2],"handsome\0",9) == 0);
+    nstrSplitFree(tokens,count);
+    nstrFree(ns2);
+    ns2 = NULL;
+
+    nstr ns3 = nstrNew("nnero^_^is^_^handsome^_^redis");
+    count = 0;
+    nstr *tokens2 = nstrSplit(ns3, "^_^", &count);
+    test_assert("nstrSplit with \"^_^\"",
+        count == 4 && memcmp(tokens2[0],"nnero\0",6) == 0
+        && memcmp(tokens2[1],"is\0",3) == 0
+        && memcmp(tokens2[2],"handsome\0",9) == 0
+        && memcmp(tokens2[3],"redis\0",6) == 0);
+    nstrSplitFree(tokens2,count);
+    nstrFree(ns3);
+    ns2 = NULL;
 
     test_report();
     return 0;

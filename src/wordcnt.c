@@ -2,13 +2,14 @@
 #include<stdlib.h>
 #include<stdio.h>
 #include"queue.h"
+#include"nstr.h"
 
 typedef struct treenode TreeNode;
 
 typedef struct binaryTree Tree;
 
 struct treenode{
-    nstr *word;
+    nstr word;
     int w_cnt;
     TreeNode *parent;
     TreeNode *left;
@@ -28,7 +29,7 @@ static TreeNode *createNode(TreeNode *parent,char* word){
     root->left = NULL;
     root->right = NULL;
     root->w_cnt = 1;
-    root->word = nstrnew(word);
+    root->word = nstrNew(word);
     return root;
 }
 
@@ -38,7 +39,7 @@ static void cntWordInner(char* word){
     TreeNode *tailParent = NULL;
     while(!queueEmpty(q)){
         TreeNode *currNode = (TreeNode*)popQueue(q);
-        if(nstrEqualsC(currNode->word,word)){
+        if(nstrEquals(currNode->word,word)){
             currNode->w_cnt++;
             break;
         }
@@ -90,7 +91,7 @@ static void travelFrontAll(TreeNode *node,void (*callback)(TreeNode *node)){
 }
 
 static int printWordcntWithWord(char* word,TreeNode *node){
-    if(node && nstrEqualsC(node->word,word)){
+    if(node && nstrEquals(node->word,word)){
         printf("%s's count is: %d\n",word,node->w_cnt);
         return 1;
     }
@@ -99,7 +100,7 @@ static int printWordcntWithWord(char* word,TreeNode *node){
 
 static void printWordcnt(TreeNode *node){
     if(node){
-        printf("[ %s ] count is: %d\n",node->word->buf,node->w_cnt);
+        printf("[ %s ] count is: %d\n",node->word,node->w_cnt);
     }
 }
 

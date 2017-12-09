@@ -28,6 +28,8 @@ nstr nstrNew(const char *init);
 
 void nstrFree(nstr ns);
 
+void nstrSplitFree(nstr *ns,int count);
+
 nstr nstrcpy(nstr ns);
 
 nstr nstrcat(nstr ns, const char *s);
@@ -40,7 +42,7 @@ int nstrStartWith(const nstr ns,const char* s);
 
 int nstrEndWith(const nstr ns, const char *s);
 
-nstr *nstrSplit(const nstr ns, const char *split);
+nstr *nstrSplit(const nstr ns, const char *split,int *count);
 
 nstr nstrReplace(nstr ns,const char *target, const char *replace);
 

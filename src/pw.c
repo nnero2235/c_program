@@ -2,7 +2,7 @@
 #include<stdlib.h>
 #include<string.h>
 #include<unistd.h>
-#include"nstring.h"
+#include"nstr.h"
 #include"wordcnt.h"
 
 int getLine(char *buf,int max,FILE* f){
@@ -15,13 +15,13 @@ int getLine(char *buf,int max,FILE* f){
     return 1;
 }
 
-nstr* getCurrentDir(){
+nstr getCurrentDir(){
     char currentDir[512];
     getcwd(currentDir,512);
-    nstr *currDir = nstrnew(currentDir);
-    currDir = nstrReplace(currDir, "\\", "\\\\");
-    currDir = nstrcat(currDir, "\\\\");
-    printf("%s\n", currDir->buf);
+    nstr currDir = nstrNew(currentDir);
+    // currDir = nstrReplace(currDir, "\\", "\\\\");
+    currDir = nstrcat(currDir, "\\");
+    printf("%s\n", currDir);
     return currDir;
 }
 
@@ -50,20 +50,20 @@ void enterInputMode(){
     }
 }
 
-void printFileWordcnt(const nstr *currDir,char** files,int size){
+void printFileWordcnt(const nstr currDir,char** files,int size){
     char splits[] = " ";
     char line[100];
     while(size--){
-        nstr *fileName = nstrnew(*files++);
-        if(!nstrContainsC(fileName,":") || nstrStartWithC(fileName,"/")){
-            fileName = nstrcat(nstrcpy(currDir), fileName->buf);
+        nstr fileName = nstrNew(*files++);
+        if(!nstrContains(fileName,":") || nstrStartWith(fileName,"/")){
+            fileName = nstrcat(nstrcpy(currDir), fileName);
         }
-        FILE *f = fopen(fileName->buf,"r");
+        FILE *f = fopen(fileName,"r");
         if(f == NULL){
-            printf("%s is not exists!\n", fileName->buf);
+            printf("%s is not exists!\n", fileName);
         } else {
             char *result = NULL;
-            printf("counting... %s\n", fileName->buf);
+            printf("counting... %s\n", fileName);
             while(getLine(line,100,f)){
                 result = strtok(line,splits);
                 while(result != NULL){
