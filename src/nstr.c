@@ -1,7 +1,7 @@
-#include "nstr.h"
+#include"nstr.h"
 #include<string.h>
 #include<stdlib.h>
-#include"testhelper.h"
+#include"debug.h"
 
 //内存移动，从右往左 移动
 static void memrmove(char* dist,char *src,size_t len){
